@@ -10,7 +10,7 @@ on:
 env:
   DOTNET_VERSION: '9.0.x'
   PROJECT_PATH: 'OverlayWindow.csproj'
-  APP_NAME: 'CS2Overlay'
+  APP_NAME: 'LiveStrike'
 
 jobs:
   build-and-test:
@@ -112,15 +112,15 @@ jobs:
         echo Installing CS2 Overlay...
         set INSTALL_DIR=%ProgramFiles%\CS2Overlay
         if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
-        copy /Y "OverlayWindow.exe" "%INSTALL_DIR%\"
+        copy /Y "LiveStrike.exe" "%INSTALL_DIR%\"
         copy /Y /S "server\*" "%INSTALL_DIR%\server\"
         echo Creating desktop shortcut...
         powershell -Command "
         `$WshShell = New-Object -comObject WScript.Shell;
-        `$Shortcut = `$WshShell.CreateShortcut('%USERPROFILE%\Desktop\CS2 Overlay.lnk');
-        `$Shortcut.TargetPath = '%INSTALL_DIR%\OverlayWindow.exe';
+        `$Shortcut = `$WshShell.CreateShortcut('%USERPROFILE%\Desktop\LiveStrike.lnk');
+        `$Shortcut.TargetPath = '%INSTALL_DIR%\LiveStrike.exe';
         `$Shortcut.WorkingDirectory = '%INSTALL_DIR%';
-        `$Shortcut.Description = 'CS2 Overlay - Live match data overlay';
+        `$Shortcut.Description = 'LiveStrike - CS2 match tracking widget';
         `$Shortcut.Save()
         "
         echo Installation complete!
@@ -131,10 +131,10 @@ jobs:
         # Create uninstaller
         $uninstallerContent = @"
         @echo off
-        echo Uninstalling CS2 Overlay...
+        echo Uninstalling LiveStrike...
         set INSTALL_DIR=%ProgramFiles%\CS2Overlay
         if exist "%INSTALL_DIR%" rmdir /S /Q "%INSTALL_DIR%"
-        if exist "%USERPROFILE%\Desktop\CS2 Overlay.lnk" del "%USERPROFILE%\Desktop\CS2 Overlay.lnk"
+        if exist "%USERPROFILE%\Desktop\LiveStrike.lnk" del "%USERPROFILE%\Desktop\LiveStrike.lnk"
         echo Uninstallation complete!
         pause
         "@
@@ -170,32 +170,43 @@ jobs:
           **/install.bat
           **/uninstall.bat
         body: |
-          ## CS2 Overlay ${{ github.ref_name }}
+          ## LiveStrike ${{ github.ref_name }}
           
-          ### 🎮 What's New
-          - Real-time CS2 match overlay with live HLTV data
-          - Auto-start Node.js server
-          - Configurable animations and transparency
-          - System tray integration
-          - Global hotkeys (Ctrl+Alt+H, Ctrl+Alt+U, Ctrl+Alt+Q)
+          ### � What's New
+          - Modern CS2 match tracking widget for real-time score monitoring
+          - Real-time data fetched from HLTV with auto-start Node.js server
+          - Clean sidebar design that won't disrupt your gameplay
+          - Customizable transparency, animations, and positioning
+          - System tray integration with settings menu
+          - User-friendly Node.js setup guidance
           
           ### 📦 Downloads
-          - **Windows x64**: Recommended for most users
-          - **Windows x86**: For 32-bit systems
+          - **Windows x64**: Recommended for most users (79MB)
+          - **Windows x86**: For 32-bit systems (72MB)  
           - **Windows ARM64**: For ARM-based Windows devices
           
-          ### 🚀 Installation
+          ### 🚀 Quick Start
           1. Download the appropriate ZIP file for your system
-          2. Extract to a folder (e.g., `C:\CS2Overlay\`)
-          3. Run `OverlayWindow.exe` or use `install.bat` for system installation
-          4. Select a live CS2 match and enjoy!
+          2. Extract and run `LiveStrike.exe` - that's it!
+          3. If prompted for Node.js: Click "Yes" to install for live data
+          4. Select matches from the picker and start tracking
           
-          ### 📋 Requirements
-          - Windows 10/11
-          - .NET 9.0 Runtime (included in self-contained builds)
-          - Chrome/Edge browser (for web scraping)
+          ### 📋 System Requirements
+          - Windows 10/11 (x64, x86, ARM64)
+          - No .NET runtime required (self-contained)
+          - ~50MB RAM usage
+          - Internet connection for live data
+          - Node.js (auto-guided setup if missing)
+          
+          ### 🔧 Features
+          - Live scores and round updates from HLTV
+          - Configurable polling intervals and transparency
+          - Global hotkeys for quick control
+          - Professional error handling and logging
+          - Zero-configuration auto-start
           
           ### 🐛 Issues & Support
-          Report bugs and feature requests on [GitHub Issues](https://github.com/YOUR_USERNAME/cs2-overlay/issues)
+          Report bugs and feature requests on [GitHub Issues](../../issues)
+          Check troubleshooting guide in [README](../../blob/main/README.md)
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
