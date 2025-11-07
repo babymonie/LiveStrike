@@ -1,0 +1,61 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    
+    <!-- Assembly and Output Names -->
+    <AssemblyName>LiveStrike</AssemblyName>
+    <RootNamespace>LiveStrike</RootNamespace>
+    
+    <!-- App Information -->
+    <AssemblyTitle>LiveStrike</AssemblyTitle>
+    <Product>LiveStrike</Product>
+    <Company>LiveStrike Team</Company>
+    <Copyright>Copyright © 2025 LiveStrike Team</Copyright>
+    <AssemblyDescription>Modern CS2 match tracking widget with real-time scores and live data</AssemblyDescription>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    
+    <!-- Publishing Configuration -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    
+    <!-- Windows App Settings -->
+
+    <Win32Resource />
+    
+    <!-- MSIX Packaging -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
+    <PackageCertificateKeyFile />
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
+  </ItemGroup>
+  
+  <!-- Include server files in output -->
+  <ItemGroup>
+    <None Include="server\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  
+  <!-- Exclude unnecessary files from publish -->
+  <ItemGroup>
+    <Content Remove="bin\**" />
+    <Content Remove="obj\**" />
+    <Compile Remove="bin\**" />
+    <Compile Remove="obj\**" />
+    <EmbeddedResource Remove="bin\**" />
+    <EmbeddedResource Remove="obj\**" />
+    <None Remove="bin\**" />
+    <None Remove="obj\**" />
+  </ItemGroup>
+</Project>

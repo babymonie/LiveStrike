@@ -1,0 +1,201 @@
+name: Build and Release LiveStrike
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  PROJECT_PATH: 'OverlayWindow.csproj'
+  APP_NAME: 'CS2Overlay'
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'server/package.json'
+        
+    - name: Install Node dependencies
+      run: |
+        cd server
+        npm ci
+        
+    - name: Restore .NET dependencies
+      run: dotnet restore ${{ env.PROJECT_PATH }}
+      
+    - name: Build application
+      run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
+      
+    - name: Run tests (if any)
+      run: dotnet test ${{ env.PROJECT_PATH }} --configuration Release --no-build --verbosity normal
+      continue-on-error: true
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: |
+          bin/Release/
+          server/
+        retention-days: 5
+
+  publish-releases:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        runtime: [win-x64, win-x86, win-arm64]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'server/package.json'
+        
+    - name: Install Node dependencies
+      run: |
+        cd server
+        npm ci --production
+        
+    - name: Publish self-contained executable
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} `
+          --configuration Release `
+          --runtime ${{ matrix.runtime }} `
+          --self-contained true `
+          --output "publish/${{ matrix.runtime }}" `
+          -p:PublishSingleFile=true `
+          -p:PublishReadyToRun=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:EnableCompressionInSingleFile=true
+          
+    - name: Create portable zip
+      run: |
+        Compress-Archive -Path "publish/${{ matrix.runtime }}/*" -DestinationPath "${{ env.APP_NAME }}-${{ github.ref_name }}-${{ matrix.runtime }}.zip"
+        
+    - name: Create installer (Windows x64 only)
+      if: matrix.runtime == 'win-x64'
+      run: |
+        # Install advanced installer or use WiX
+        # For now, create a simple batch installer
+        $installerContent = @"
+        @echo off
+        echo Installing CS2 Overlay...
+        set INSTALL_DIR=%ProgramFiles%\CS2Overlay
+        if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+        copy /Y "OverlayWindow.exe" "%INSTALL_DIR%\"
+        copy /Y /S "server\*" "%INSTALL_DIR%\server\"
+        echo Creating desktop shortcut...
+        powershell -Command "
+        `$WshShell = New-Object -comObject WScript.Shell;
+        `$Shortcut = `$WshShell.CreateShortcut('%USERPROFILE%\Desktop\CS2 Overlay.lnk');
+        `$Shortcut.TargetPath = '%INSTALL_DIR%\OverlayWindow.exe';
+        `$Shortcut.WorkingDirectory = '%INSTALL_DIR%';
+        `$Shortcut.Description = 'CS2 Overlay - Live match data overlay';
+        `$Shortcut.Save()
+        "
+        echo Installation complete!
+        pause
+        "@
+        Set-Content -Path "publish/${{ matrix.runtime }}/install.bat" -Value $installerContent
+        
+        # Create uninstaller
+        $uninstallerContent = @"
+        @echo off
+        echo Uninstalling CS2 Overlay...
+        set INSTALL_DIR=%ProgramFiles%\CS2Overlay
+        if exist "%INSTALL_DIR%" rmdir /S /Q "%INSTALL_DIR%"
+        if exist "%USERPROFILE%\Desktop\CS2 Overlay.lnk" del "%USERPROFILE%\Desktop\CS2 Overlay.lnk"
+        echo Uninstallation complete!
+        pause
+        "@
+        Set-Content -Path "publish/${{ matrix.runtime }}/uninstall.bat" -Value $uninstallerContent
+        
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-${{ matrix.runtime }}
+        path: |
+          ${{ env.APP_NAME }}-${{ github.ref_name }}-${{ matrix.runtime }}.zip
+          publish/${{ matrix.runtime }}/install.bat
+          publish/${{ matrix.runtime }}/uninstall.bat
+        retention-days: 30
+
+  create-github-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: publish-releases
+    runs-on: windows-latest
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        draft: false
+        prerelease: contains(github.ref, '-')
+        generate_release_notes: true
+        files: |
+          **/*.zip
+          **/install.bat
+          **/uninstall.bat
+        body: |
+          ## CS2 Overlay ${{ github.ref_name }}
+          
+          ### 🎮 What's New
+          - Real-time CS2 match overlay with live HLTV data
+          - Auto-start Node.js server
+          - Configurable animations and transparency
+          - System tray integration
+          - Global hotkeys (Ctrl+Alt+H, Ctrl+Alt+U, Ctrl+Alt+Q)
+          
+          ### 📦 Downloads
+          - **Windows x64**: Recommended for most users
+          - **Windows x86**: For 32-bit systems
+          - **Windows ARM64**: For ARM-based Windows devices
+          
+          ### 🚀 Installation
+          1. Download the appropriate ZIP file for your system
+          2. Extract to a folder (e.g., `C:\CS2Overlay\`)
+          3. Run `OverlayWindow.exe` or use `install.bat` for system installation
+          4. Select a live CS2 match and enjoy!
+          
+          ### 📋 Requirements
+          - Windows 10/11
+          - .NET 9.0 Runtime (included in self-contained builds)
+          - Chrome/Edge browser (for web scraping)
+          
+          ### 🐛 Issues & Support
+          Report bugs and feature requests on [GitHub Issues](https://github.com/YOUR_USERNAME/cs2-overlay/issues)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
