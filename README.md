@@ -47,10 +47,12 @@ LiveStrike is the ultimate sidebar companion for Counter-Strike 2 enthusiasts. D
 ### Download & Run
 1. Download the latest release from [Releases](../../releases)
 2. Run `LiveStrike.exe` - that's it!
-3. Right-click the system tray icon for settings
+3. **If prompted for Node.js**: Click "Yes" to install it for live data fetching
+4. Right-click the system tray icon for settings
 
 ### First Launch
 - LiveStrike automatically starts its data service
+- If Node.js isn't installed, you'll get a helpful setup prompt
 - Choose your preferred matches from the picker
 - Adjust opacity and position to your liking
 - Widget stays on top for continuous monitoring
@@ -105,6 +107,27 @@ See [PUBLISHING.md](PUBLISHING.md) for complete deployment guide.
 - **RAM**: ~50MB
 - **Storage**: ~80MB
 - **Network**: Internet connection for live data
+- **Node.js**: Required for fetching live match data (auto-installed guidance provided)
+
+## ⚠️ Troubleshooting
+
+### "Node.js Required" Error
+If you see a Node.js error when starting LiveStrike:
+
+1. **Download Node.js** from https://nodejs.org/en/download/
+2. **Install Node.js** with default settings (this adds it to your PATH)
+3. **Restart LiveStrike** - the app will automatically detect and use Node.js
+4. **Alternative**: Click "Yes" when LiveStrike prompts to open the download page
+
+### Common Issues
+- **"Failed to load matches"**: Usually means Node.js isn't installed
+- **Empty match list**: Check your internet connection
+- **Server not starting**: Try running as administrator or check antivirus settings
+
+### Getting Help
+- Check the logs in `%LOCALAPPDATA%\LiveStrike\app.log`
+- Report issues on [GitHub Issues](../../issues)
+- Include your log file when reporting problems
 
 ## 🤝 Contributing
 

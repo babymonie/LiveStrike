@@ -89,7 +89,19 @@ namespace CS2Overlay.Infrastructure
 
             TryLogToFile($"Starting process: {psi.FileName} {psi.Arguments} in {psi.WorkingDirectory}");
 
-            _proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+            try
+            {
+                _proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = IsNodeNotFoundError(ex) 
+                    ? "Node.js is not installed or not found in PATH. Please install Node.js from https://nodejs.org"
+                    : $"Failed to create Node.js process: {ex.Message}";
+                TryLogToFile($"Process creation failed: {errorMsg}");
+                throw new InvalidOperationException(errorMsg, ex);
+            }
+
             _proc.OutputDataReceived += (_, e) => { 
                 if (!string.IsNullOrWhiteSpace(e.Data)) 
                 {
@@ -109,8 +121,27 @@ namespace CS2Overlay.Infrastructure
                 TryLogToFile($"[node] Process exited with code: {_proc?.ExitCode}");
             };
 
-            if (!_proc.Start())
-                throw new InvalidOperationException("Failed to start Node process.");
+            try
+            {
+                if (!_proc.Start())
+                {
+                    var errorMsg = "Node.js process failed to start. Please ensure Node.js is installed from https://nodejs.org";
+                    TryLogToFile(errorMsg);
+                    throw new InvalidOperationException(errorMsg);
+                }
+            }
+            catch (Exception ex) when (IsNodeNotFoundError(ex))
+            {
+                var errorMsg = "Node.js is not installed or not found in PATH. Please install Node.js from https://nodejs.org and restart LiveStrike.";
+                TryLogToFile($"Node.js not found: {errorMsg}");
+                throw new InvalidOperationException(errorMsg, ex);
+            }
+            catch (Exception ex)
+            {
+                var errorMsg = $"Failed to start Node.js process: {ex.Message}. Please ensure Node.js is installed from https://nodejs.org";
+                TryLogToFile($"Process start failed: {errorMsg}");
+                throw new InvalidOperationException(errorMsg, ex);
+            }
 
             TryLogToFile($"Node process started with PID: {_proc.Id}");
             _proc.BeginOutputReadLine();
@@ -152,6 +183,16 @@ namespace CS2Overlay.Infrastructure
         public static void Stop()
         {
             TryKillOld();
+        }
+
+        private static bool IsNodeNotFoundError(Exception ex)
+        {
+            // Check for common Node.js not found error patterns
+            var message = ex.Message?.ToLowerInvariant() ?? "";
+            return message.Contains("system cannot find the file specified") ||
+                   message.Contains("'node' is not recognized") ||
+                   message.Contains("no such file or directory") ||
+                   ex is System.ComponentModel.Win32Exception;
         }
 
         private static void TryLogToFile(string message)

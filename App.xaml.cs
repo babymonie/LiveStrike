@@ -52,7 +52,33 @@ namespace LiveStrike
                 catch (Exception ex)
                 {
                     TryLog($"Failed to auto-start Node server: {ex.Message}");
-                    // Continue anyway - MatchPickerWindow will try to start it
+                    
+                    // Show user-friendly error for Node.js issues
+                    if (IsNodeJsError(ex))
+                    {
+                        var result = MessageBox.Show(
+                            "LiveStrike requires Node.js to fetch live match data from HLTV.\n\n" +
+                            "Node.js is not installed on your system or not found in PATH.\n\n" +
+                            "The application will continue, but you'll need to install Node.js to fetch live matches.\n\n" +
+                            "Would you like to open the Node.js download page now?",
+                            "Node.js Required - LiveStrike",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Information);
+
+                        if (result == MessageBoxResult.Yes)
+                        {
+                            try
+                            {
+                                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                {
+                                    FileName = "https://nodejs.org/en/download/",
+                                    UseShellExecute = true
+                                });
+                            }
+                            catch { /* ignore browser launch errors */ }
+                        }
+                    }
+                    // Continue anyway - MatchPickerWindow will handle the error gracefully
                 }
             }
 
@@ -112,6 +138,20 @@ namespace LiveStrike
                 File.AppendAllText(file, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}");
             }
             catch { /* ignore logging errors */ }
+        }
+
+        private static bool IsNodeJsError(Exception ex)
+        {
+            var message = ex.Message?.ToLowerInvariant() ?? "";
+            var innerMessage = ex.InnerException?.Message?.ToLowerInvariant() ?? "";
+            
+            return message.Contains("node.js") ||
+                   message.Contains("'node' is not recognized") ||
+                   message.Contains("system cannot find the file specified") ||
+                   message.Contains("no such file or directory") ||
+                   innerMessage.Contains("node.js") ||
+                   innerMessage.Contains("'node' is not recognized") ||
+                   ex.InnerException is System.ComponentModel.Win32Exception;
         }
 
         private void SetupTrayIcon()

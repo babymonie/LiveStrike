@@ -64,9 +64,21 @@ namespace CS2Overlay.UI
             catch (Exception ex)
             {
                 StatusText.Text = "Failed to load matches.";
+                
+                // Check if this is a Node.js related error
+                if (IsNodeJsError(ex))
+                {
+                    ShowNodeJsErrorDialog();
+                }
+                else
+                {
 #if DEBUG
-                MessageBox.Show(ex.Message, "HLTV load error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(ex.Message, "HLTV load error", MessageBoxButton.OK, MessageBoxImage.Warning);
+#else
+                    MessageBox.Show("Failed to connect to the data service. Please check your internet connection and try again.", 
+                        "Connection Error", MessageBoxButton.OK, MessageBoxImage.Warning);
 #endif
+                }
             }
             finally
             {
@@ -196,6 +208,52 @@ namespace CS2Overlay.UI
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
+        }
+
+        private static bool IsNodeJsError(Exception ex)
+        {
+            var message = ex.Message?.ToLowerInvariant() ?? "";
+            var innerMessage = ex.InnerException?.Message?.ToLowerInvariant() ?? "";
+            
+            return message.Contains("node.js") ||
+                   message.Contains("'node' is not recognized") ||
+                   message.Contains("system cannot find the file specified") ||
+                   message.Contains("no such file or directory") ||
+                   innerMessage.Contains("node.js") ||
+                   innerMessage.Contains("'node' is not recognized") ||
+                   ex.InnerException is System.ComponentModel.Win32Exception;
+        }
+
+        private void ShowNodeJsErrorDialog()
+        {
+            var result = MessageBox.Show(
+                "LiveStrike requires Node.js to fetch live match data from HLTV.\n\n" +
+                "Node.js is not installed on your system or not found in PATH.\n\n" +
+                "Would you like to open the Node.js download page to install it?",
+                "Node.js Required",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "https://nodejs.org/en/download/",
+                        UseShellExecute = true
+                    });
+                }
+                catch
+                {
+                    MessageBox.Show(
+                        "Please visit https://nodejs.org/en/download/ to download and install Node.js.\n\n" +
+                        "After installation, restart LiveStrike to fetch live match data.",
+                        "Download Node.js",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+            }
         }
     }
 }
