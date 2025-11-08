@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'v*'
+<<<<<<< HEAD
+=======
+  workflow_dispatch:
+>>>>>>> 8bcd29a (Add GitHub Actions workflow for publish and release automation)
 
 jobs:
   build:

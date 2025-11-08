@@ -43,7 +43,7 @@ if %ERRORLEVEL% EQU 0 (
 
 echo.
 echo ========================================
-echo All builds completed successfully!
+echo All builds completed successfully YAY!
 echo.
 echo Output locations:
 echo   64-bit: bin\Release\Publish\Win64\LiveStrike.exe
