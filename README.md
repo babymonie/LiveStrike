@@ -5,6 +5,8 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
 ![.NET](https://img.shields.io/badge/.NET-9.0-purple.svg)
+📸 Screenshots
+<p align="center"> <img src="https://github.com/babymonie/LiveStrike/blob/main/screenshots/Screenshot%202025-11-08%20220433.png" width="420" /> <img src="https://github.com/babymonie/LiveStrike/blob/main/screenshots/Screenshot%202025-11-08%20220422.png" width="420" /> </p>
 
 ## 🚀 What is LiveStrike?
 
