@@ -209,4 +209,4 @@ jobs:
           Report bugs and feature requests on [GitHub Issues](../../issues)
           Check troubleshooting guide in [README](../../blob/main/README.md)
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ github.token }}
