@@ -4,14 +4,20 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:  # ✅ Allows manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
+
   build:
     runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -25,7 +31,7 @@ jobs:
         run: dotnet build Hltv.sln --configuration Release --no-restore
 
       - name: Publish app
-        run: dotnet publish ./OverlayWindow/OverlayWindow.csproj `
+        run: dotnet publish OverlayWindow.csproj `
               --configuration Release `
               --output ./publish `
               --runtime win-x64 `
@@ -36,10 +42,11 @@ jobs:
         with:
           name: published-app
           path: ./publish/
-
+  
   release:
     needs: build
     runs-on: windows-latest
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download published files
         uses: actions/download-artifact@v4
