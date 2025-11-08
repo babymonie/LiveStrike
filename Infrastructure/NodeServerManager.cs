@@ -128,7 +128,13 @@ namespace CS2Overlay.Infrastructure
                             var stdErr = npmProc.StandardError.ReadToEndAsync();
                             npmProc.WaitForExit();
 
-                            if (!npmProc.ExitCode == 0)
+                            if (npmProc.ExitCode == 0)
+                            {
+                                var output = stdOut.GetAwaiter().GetResult();
+                                TryLog($"npm install completed successfully: {output}");
+                                System.Windows.MessageBox.Show("npm install completed successfully. The server will now start.", "npm install", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                            }
+                            else
                             {   
                                 var err = stdErr.GetAwaiter().GetResult();
                                 TryLog($"npm install failed with exit code {npmProc.ExitCode}: {err}");
