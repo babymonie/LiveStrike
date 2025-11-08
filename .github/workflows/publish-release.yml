@@ -1,0 +1,44 @@
+name: Publish and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Restore dependencies
+        run: dotnet restore Hltv.sln
+      - name: Build
+        run: dotnet build Hltv.sln --configuration Release --no-restore
+      - name: Publish
+        run: dotnet publish OverlayWindow.csproj --configuration Release --output ./publish --runtime win-x64 --self-contained true
+      - name: Upload published files
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-app
+          path: ./publish
+
+  release:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Download published files
+        uses: actions/download-artifact@v4
+        with:
+          name: published-app
+          path: ./publish
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./publish/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
