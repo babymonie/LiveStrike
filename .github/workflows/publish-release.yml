@@ -1,12 +1,13 @@
 name: Publish and Release
-permissions:
-  contents: write
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:  # ✅ Allows manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
 
@@ -15,12 +16,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Create Tag
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-          git tag v1.0.0  # Change this tag as needed
-          git push origin v1.0.0
+        with:
+          fetch-depth: 0
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
