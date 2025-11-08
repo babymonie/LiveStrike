@@ -41,14 +41,11 @@ jobs:
         run: |
           mkdir release
           mkdir release/server
-          copy publish\LiveStrike.exe release\
-          copy publish\LiveStrike.pdb release\
+          Copy-Item publish\LiveStrike.exe release\
+          if (Test-Path publish\LiveStrike.pdb) { Copy-Item publish\LiveStrike.pdb release\ }
 
-          copy publish\server.js release\server\
-          copy publish\test.js release\server\
-          copy publish\site-configs.js release\server\
-          copy publish\package.json release\server\
-          copy publish\package-lock.json release\server\
+          # Copy entire Node server folder from publish output
+          if (Test-Path publish\server) { Copy-Item publish\server\* release\server\ -Recurse -Force }
 
       - name: Create ZIP archive
         run: powershell Compress-Archive -Path release\* -DestinationPath release.zip
