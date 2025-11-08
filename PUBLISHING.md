@@ -1,4 +1,4 @@
-# LiveStrike - Publishing Guide
+# LiveStrike - Publishing Guide for ya
 
 ## Publishing Options
 
