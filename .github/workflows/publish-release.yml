@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:  # ✅ Allows manual trigger
 
 jobs:
   build:
@@ -11,21 +12,30 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
+
       - name: Restore dependencies
         run: dotnet restore Hltv.sln
-      - name: Build
+
+      - name: Build solution
         run: dotnet build Hltv.sln --configuration Release --no-restore
-      - name: Publish
-        run: dotnet publish OverlayWindow.csproj --configuration Release --output ./publish --runtime win-x64 --self-contained true
+
+      - name: Publish app
+        run: dotnet publish ./OverlayWindow/OverlayWindow.csproj `
+              --configuration Release `
+              --output ./publish `
+              --runtime win-x64 `
+              --self-contained true
+
       - name: Upload published files
         uses: actions/upload-artifact@v4
         with:
           name: published-app
-          path: ./publish
+          path: ./publish/
 
   release:
     needs: build
@@ -36,9 +46,10 @@ jobs:
         with:
           name: published-app
           path: ./publish
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: ./publish/**
+          files: ./publish/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
