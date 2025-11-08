@@ -25,7 +25,7 @@ jobs:
         run: dotnet build Hltv.sln --configuration Release --no-restore
 
       - name: Publish app
-        run: dotnet publish ./OverlayWindow/OverlayWindow.csproj `
+        run: dotnet publish ./LiveStrike/OverlayWindow.csproj `
               --configuration Release `
               --output ./publish `
               --runtime win-x64 `
