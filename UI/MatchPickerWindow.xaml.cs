@@ -68,7 +68,7 @@ namespace CS2Overlay.UI
                 // Check if this is a Node.js related error
                 if (IsNodeJsError(ex))
                 {
-                    ShowNodeJsErrorDialog();
+                    // Node.js error dialog removed; handled by InstallingDependenciesWindow
                 }
                 else
                 {
@@ -224,36 +224,5 @@ namespace CS2Overlay.UI
                    ex.InnerException is System.ComponentModel.Win32Exception;
         }
 
-        private void ShowNodeJsErrorDialog()
-        {
-            var result = MessageBox.Show(
-                "LiveStrike requires Node.js to fetch live match data from HLTV.\n\n" +
-                "Node.js is not installed on your system or not found in PATH.\n\n" +
-                "Would you like to open the Node.js download page to install it?",
-                "Node.js Required",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Information);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                try
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                    {
-                        FileName = "https://nodejs.org/en/download/",
-                        UseShellExecute = true
-                    });
-                }
-                catch
-                {
-                    MessageBox.Show(
-                        "Please visit https://nodejs.org/en/download/ to download and install Node.js.\n\n" +
-                        "After installation, restart LiveStrike to fetch live match data.",
-                        "Download Node.js",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
-                }
-            }
-        }
     }
 }

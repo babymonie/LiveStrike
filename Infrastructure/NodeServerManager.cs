@@ -15,28 +15,51 @@ namespace CS2Overlay.Infrastructure
         public string WorkingDirectory { get; set; } = GetDefaultWorkingDirectory();
         public int Port { get; set; } = 3000;
         public bool Headless { get; set; } = true; // passed as env if you want
-        
+
         private static string GetDefaultScriptPath()
         {
-            // Try to find server.js in project directory structure
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            var projectServerPath = Path.Combine(baseDir, "..", "..", "..", "server", "server.js");
-            if (File.Exists(projectServerPath))
-                return Path.GetFullPath(projectServerPath);
-            
+
+            // Walk up to 6 levels to find a folder named 'server' containing server.js
+            var serverDir = TryFindServerDirectory(baseDir);
+            if (serverDir != null)
+            {
+                var candidate = Path.Combine(serverDir, "server.js");
+                if (File.Exists(candidate))
+                    return candidate;
+            }
+
             // Fallback to build output directory
             return Path.Combine(baseDir, "server", "server.js");
         }
-        
+
         private static string GetDefaultWorkingDirectory()
         {
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            var projectServerDir = Path.Combine(baseDir, "..", "..", "..", "server");
-            if (Directory.Exists(projectServerDir))
-                return Path.GetFullPath(projectServerDir);
-            
+
+            var serverDir = TryFindServerDirectory(baseDir);
+            if (serverDir != null)
+                return serverDir;
+
             // Fallback to build output directory
             return Path.Combine(baseDir, "server");
+        }
+
+        private static string? TryFindServerDirectory(string baseDir)
+        {
+            try
+            {
+                var dir = new DirectoryInfo(baseDir);
+                for (int i = 0; i < 6 && dir != null; i++)
+                {
+                    var candidate = Path.Combine(dir.FullName, "server");
+                    if (Directory.Exists(candidate))
+                        return Path.GetFullPath(candidate);
+                    dir = dir.Parent;
+                }
+            }
+            catch { }
+            return null;
         }
     }
 
@@ -48,12 +71,12 @@ namespace CS2Overlay.Infrastructure
         public static async Task<bool> EnsureStartedAsync(string baseUrl, NodeServerOptions? options = null, int startupTimeoutMs = 15000)
         {
             options ??= new NodeServerOptions();
-            TryLogToFile($"EnsureStartedAsync called for {baseUrl}");
-            
+            TryLog($"EnsureStartedAsync called for {baseUrl}");
+
             // 1) Already up?
-            if (await IsServerUp(baseUrl)) 
+            if (await IsServerUp(baseUrl))
             {
-                TryLogToFile("Server already running");
+                TryLog("Server already running");
                 return true;
             }
 
@@ -62,12 +85,70 @@ namespace CS2Overlay.Infrastructure
             var host = uri.Host;
             if (!(string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) || host == "127.0.0.1"))
             {
-                TryLogToFile($"Not auto-starting server for non-localhost host: {host}");
+                TryLog($"Not auto-starting server for non-localhost host: {host}");
                 return false;
             }
 
-            // 2) Start node server
-            TryLogToFile("Starting Node server...");
+            // 2) Check for node_modules in server folder
+            TryLog("Checking for node_modules...");
+            TryLog("Working directory: " + options.WorkingDirectory);
+
+            var nodeModulesPath = Path.Combine(options.WorkingDirectory, "node_modules");
+            TryLog(nodeModulesPath);
+            if (!Directory.Exists(nodeModulesPath))
+            {
+                var msg = "Node server failed to start due to missing modules.\nWould you like LiveStrike to run 'npm install' for you, or will you do it manually?";
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    var result = System.Windows.MessageBox.Show(msg, "Node Server Error", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+                    if (result == System.Windows.MessageBoxResult.Yes)
+                    {
+                        // Run npm install automatically in the actual project server folder
+                        try
+                        {
+                            var projectServerDir = options.WorkingDirectory; // Prefer discovered project server directory
+                            if (!Directory.Exists(projectServerDir))
+                                throw new DirectoryNotFoundException($"Server folder not found: {projectServerDir}");
+
+                            // On Windows, invoke via cmd to ensure npm.cmd is resolved when UseShellExecute=false
+                            bool isWindows = Environment.OSVersion.Platform == PlatformID.Win32NT;
+                            var psi = new ProcessStartInfo
+                            {
+                                FileName = isWindows ? "cmd.exe" : "npm",
+                                Arguments = isWindows ? "/c npm install" : "install",
+                                WorkingDirectory = projectServerDir,
+                                UseShellExecute = false,
+                                CreateNoWindow = true,
+                                RedirectStandardOutput = true,
+                                RedirectStandardError = true
+                            };
+
+                            using var npmProc = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start npm process");
+                            var stdOut = npmProc.StandardOutput.ReadToEndAsync();
+                            var stdErr = npmProc.StandardError.ReadToEndAsync();
+                            npmProc.WaitForExit();
+
+                            if (!npmProc.ExitCode == 0)
+                            {   
+                                var err = stdErr.GetAwaiter().GetResult();
+                                TryLog($"npm install failed with exit code {npmProc.ExitCode}: {err}");
+                                System.Windows.MessageBox.Show($"npm install failed (code {npmProc.ExitCode}). Please open the 'server' folder and run 'npm install' manually.\n\n{Truncate(err, 900)}", "npm install failed", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Windows.MessageBox.Show($"Failed to run npm install: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                        }
+                    }
+                    else
+                    {
+                        System.Windows.MessageBox.Show("Please run 'npm install' in the server folder manually, then restart LiveStrike.", "Manual Install Required", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    }
+                });
+            }
+
+            // 3) Start node server
+            TryLog("Starting Node server...");
             TryKillOld(); // safety
             Directory.CreateDirectory(options.WorkingDirectory);
 
@@ -95,30 +176,34 @@ namespace CS2Overlay.Infrastructure
             }
             catch (Exception ex)
             {
-                var errorMsg = IsNodeNotFoundError(ex) 
+                var errorMsg = IsNodeNotFoundError(ex)
                     ? "Node.js is not installed or not found in PATH. Please install Node.js from https://nodejs.org"
                     : $"Failed to create Node.js process: {ex.Message}";
-                TryLogToFile($"Process creation failed: {errorMsg}");
+                TryLog($"Process creation failed: {errorMsg}");
                 throw new InvalidOperationException(errorMsg, ex);
             }
 
-            _proc.OutputDataReceived += (_, e) => { 
-                if (!string.IsNullOrWhiteSpace(e.Data)) 
+            _proc.OutputDataReceived += (_, e) =>
+            {
+                if (!string.IsNullOrWhiteSpace(e.Data))
                 {
                     Debug.WriteLine("[node] " + e.Data);
                     // Also log to file for debugging
-                    TryLogToFile("[node] " + e.Data);
+                    TryLog("[node] " + e.Data);
                 }
             };
-            _proc.ErrorDataReceived +=  (_, e) => { 
-                if (!string.IsNullOrWhiteSpace(e.Data)) 
+            _proc.ErrorDataReceived += (_, e) =>
+            {
+                if (!string.IsNullOrWhiteSpace(e.Data))
                 {
                     Debug.WriteLine("[node:err] " + e.Data);
-                    TryLogToFile("[node:err] " + e.Data);
+                    TryLog("[node:err] " + e.Data);
                 }
             };
-            _proc.Exited += (_, e) => {
-                TryLogToFile($"[node] Process exited with code: {_proc?.ExitCode}");
+            _proc.Exited += (_, e) =>
+            {
+                TryLog($"[node] Process exited with code: {_proc?.ExitCode}");
+                // Only log exit, do not show npm install modal here to avoid duplicate dialogs
             };
 
             try
@@ -126,41 +211,42 @@ namespace CS2Overlay.Infrastructure
                 if (!_proc.Start())
                 {
                     var errorMsg = "Node.js process failed to start. Please ensure Node.js is installed from https://nodejs.org";
-                    TryLogToFile(errorMsg);
+                    TryLog(errorMsg);
                     throw new InvalidOperationException(errorMsg);
                 }
             }
             catch (Exception ex) when (IsNodeNotFoundError(ex))
             {
                 var errorMsg = "Node.js is not installed or not found in PATH. Please install Node.js from https://nodejs.org and restart LiveStrike.";
-                TryLogToFile($"Node.js not found: {errorMsg}");
+                TryLog($"Node.js not found: {errorMsg}");
                 throw new InvalidOperationException(errorMsg, ex);
             }
             catch (Exception ex)
             {
                 var errorMsg = $"Failed to start Node.js process: {ex.Message}. Please ensure Node.js is installed from https://nodejs.org";
-                TryLogToFile($"Process start failed: {errorMsg}");
+                TryLog($"Process start failed: {errorMsg}");
                 throw new InvalidOperationException(errorMsg, ex);
             }
 
-            TryLogToFile($"Node process started with PID: {_proc.Id}");
+            TryLog($"Node process started with PID: {_proc.Id}");
+            TryLog("Node server auto-started successfully");
             _proc.BeginOutputReadLine();
             _proc.BeginErrorReadLine();
 
-            // 3) Wait until /status responds
-            TryLogToFile("Waiting for server to respond...");
+            // 4) Wait until /status responds
+            TryLog("Waiting for server to respond...");
             var sw = Stopwatch.StartNew();
             while (sw.ElapsedMilliseconds < startupTimeoutMs)
             {
-                if (await IsServerUp(baseUrl)) 
+                if (await IsServerUp(baseUrl))
                 {
-                    TryLogToFile($"Server is up after {sw.ElapsedMilliseconds}ms");
+                    TryLog($"Server is up after {sw.ElapsedMilliseconds}ms");
                     return true;
                 }
                 await Task.Delay(500);
             }
 
-            TryLogToFile($"Server failed to start within {startupTimeoutMs}ms timeout");
+            TryLog($"Server failed to start within {startupTimeoutMs}ms timeout");
             return false;
         }
 
@@ -194,6 +280,17 @@ namespace CS2Overlay.Infrastructure
                    message.Contains("no such file or directory") ||
                    ex is System.ComponentModel.Win32Exception;
         }
+        private static void TryLog(string message)
+        {
+            try
+            {
+                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LiveStrike");
+                Directory.CreateDirectory(dir);
+                var file = Path.Combine(dir, "app.log");
+                File.AppendAllText(file, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}");
+            }
+            catch { /* ignore logging errors */ }
+        }
 
         private static void TryLogToFile(string message)
         {
@@ -221,6 +318,12 @@ namespace CS2Overlay.Infrastructure
             }
             catch { /* ignore */ }
             finally { _proc = null; }
+        }
+
+        private static string Truncate(string value, int max)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            return value.Length > max ? value.Substring(0, max) + "…" : value;
         }
     }
 }

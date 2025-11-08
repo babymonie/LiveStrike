@@ -37,26 +37,42 @@ jobs:
               --runtime win-x64 `
               --self-contained true
 
-      - name: Upload published files
+      - name: Organize release folder
+        run: |
+          mkdir release
+          mkdir release/server
+          copy publish\LiveStrike.exe release\
+          copy publish\LiveStrike.pdb release\
+
+          copy publish\server.js release\server\
+          copy publish\test.js release\server\
+          copy publish\site-configs.js release\server\
+          copy publish\package.json release\server\
+          copy publish\package-lock.json release\server\
+
+      - name: Create ZIP archive
+        run: powershell Compress-Archive -Path release\* -DestinationPath release.zip
+
+      - name: Upload release.zip
         uses: actions/upload-artifact@v4
         with:
-          name: published-app
-          path: ./publish/
-  
+          name: release-zip
+          path: release.zip
+
   release:
     needs: build
     runs-on: windows-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: Download published files
+      - name: Download built zip
         uses: actions/download-artifact@v4
         with:
-          name: published-app
-          path: ./publish
+          name: release-zip
+          path: ./
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: ./publish/**/*
+          files: release.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
