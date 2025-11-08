@@ -11,14 +11,14 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Create Tag
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
           git tag v1.0.0  # Change this tag as needed
           git push origin v1.0.0
-      - name: Checkout code
-        uses: actions/checkout@v4
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
