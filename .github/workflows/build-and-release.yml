@@ -6,6 +6,9 @@ on:
     tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ main ]
+  release:
+    types: [created, published]
+  workflow_dispatch: {}
 
 env:
   DOTNET_VERSION: '9.0.x'
@@ -57,7 +60,8 @@ jobs:
         retention-days: 5
 
   publish-releases:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # run when the ref is a tag (refs/tags/v*) OR when triggered by a "release" event
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
     needs: build-and-test
     runs-on: windows-latest
     
@@ -151,7 +155,8 @@ jobs:
         retention-days: 30
 
   create-github-release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # same guard as publish-releases
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
     needs: publish-releases
     runs-on: windows-latest
     
